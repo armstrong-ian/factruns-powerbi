@@ -1,0 +1,33 @@
+
+// ===== Core counts =====
+Total Runs = COUNTROWS(FactRuns)
+Reprints = SUM(FactRuns[IsReprint])
+Reprint Rate = DIVIDE([Reprints], [Total Runs])
+
+Defects = SUM(FactRuns[IsDefect])
+Defect Rate = DIVIDE([Defects], [Total Runs])
+
+Avg Duration (min) = AVERAGE(FactRuns[DurationMin])
+Median Duration (min) = MEDIAN(FactRuns[DurationMin])
+Avg Duration (hr) = AVERAGE(FactRuns[DurationHours])
+
+Runs per Labor Hour = DIVIDE([Total Runs], SUM(FactRuns[TotalHours]))
+Hours per Run = DIVIDE(SUM(FactRuns[TotalHours]), [Total Runs])
+
+// ===== Time intelligence (requires relationship to DimDate[Date] on FactRuns[CompletedDate]) =====
+Runs (Last 7D) = CALCULATE([Total Runs], DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -7, DAY))
+Runs (Last 28D) = CALCULATE([Total Runs], DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -28, DAY))
+
+Reprint Rate (Last 28D) = DIVIDE(
+    CALCULATE([Reprints], DATESINPERIOD(DimDate[Date], MAX(DimDate[Date]), -28, DAY)),
+    [Runs (Last 28D)]
+)
+
+On-time 24h Rate = DIVIDE(SUM(FactRuns[OnTime24h]), [Total Runs])
+
+// ===== Mix percentages =====
+% by Model = DIVIDE(CALCULATE([Total Runs], ALLEXCEPT(FactRuns, FactRuns[Model])), CALCULATE([Total Runs], ALL(FactRuns[Model])))
+% by Material = DIVIDE(CALCULATE([Total Runs], ALLEXCEPT(FactRuns, FactRuns[Material])), CALCULATE([Total Runs], ALL(FactRuns[Material])))
+
+// ===== Printer productivity =====
+Runs per Printer (Daily Avg) = AVERAGEX(VALUES(DimDate[Date]), [Total Runs])

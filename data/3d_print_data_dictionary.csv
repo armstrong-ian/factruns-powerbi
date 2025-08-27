@@ -1,0 +1,12 @@
+Column,Description
+RunID,"Unique job/run identifier string (e.g., RUN1234)."
+SubmittedAt,Date/time when a print job was submitted (datetime).
+CompletedAt,Date/time when the print completed (datetime).
+Printer,"Printer ID/name (e.g., P1, P2)."
+Model,"Type of dental print (Crown, Bridge, NightGuard, Tray, Model, etc.)."
+Material,Resin/material used (Resin_A/B/C).
+DurationMin,Print duration in minutes (integer).
+ReprintFlag,"1 if this run was a reprint/redone job, 0 otherwise (integer)."
+DefectType,Recorded defect type or 'None' if OK (text).
+TotalHours,Labor hours logged that day/shift for this printer/workcell (decimal).
+WeekStart,Start-of-week date used for grouping/rollups (date).

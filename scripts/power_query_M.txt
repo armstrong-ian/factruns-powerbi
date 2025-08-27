@@ -1,0 +1,51 @@
+
+// ==========================
+// Query 1: FactRuns (from Excel)
+// ==========================
+let
+    Source = Excel.Workbook(File.Contents("C:\\path\\to\\BA_portfolio_template.xlsx"), null, true),
+    Data_Sheet = Source{[Item="Data",Kind="Sheet"]}[Data],
+    PromoteHeaders = Table.PromoteHeaders(Data_Sheet, [PromoteAllScalars=true]),
+    ChangeTypes = Table.TransformColumnTypes(PromoteHeaders, {
+        {"RunID", type text},
+        {"SubmittedAt", type datetime},
+        {"CompletedAt", type datetime},
+        {"Printer", type text},
+        {"Model", type text},
+        {"Material", type text},
+        {"DurationMin", Int64.Type},
+        {"ReprintFlag", Int64.Type},
+        {"DefectType", type text},
+        {"TotalHours", type number},
+        {"WeekStart", type date}
+    }),
+    // Normalize empty/None defects to null for cleaner DAX
+    NormalizeDefects = Table.ReplaceValue(ChangeTypes,"None",null,Replacer.ReplaceValue,{"DefectType"}),
+    // Add helper columns
+    AddCompletedDate = Table.AddColumn(NormalizeDefects, "CompletedDate", each Date.From([CompletedAt]), type date),
+    AddDurationHours = Table.AddColumn(AddCompletedDate, "DurationHours", each try Number.From([DurationMin]) / 60.0 otherwise null, type number),
+    AddIsDefect = Table.AddColumn(AddDurationHours, "IsDefect", each if [DefectType] <> null then 1 else 0, Int64.Type),
+    AddIsReprint = Table.AddColumn(AddIsDefect, "IsReprint", each if [ReprintFlag] = 1 then 1 else 0, Int64.Type),
+    // Optional: On-time within 24h
+    AddOnTime24h = Table.AddColumn(AddIsReprint, "OnTime24h", each 
+        try if Duration.TotalHours([CompletedAt] - [SubmittedAt]) <= 24 then 1 else 0 otherwise null, Int64.Type)
+in
+    AddOnTime24h;
+
+// ==========================
+// Query 2: DimDate (dependent on FactRuns)
+// ==========================
+let
+    MinDate = Date.From(List.Min(FactRuns[CompletedDate])),
+    MaxDate = Date.From(List.Max(FactRuns[CompletedDate])),
+    DayCount = Duration.Days(MaxDate - MinDate) + 1,
+    Dates = List.Dates(MinDate, DayCount, #duration(1,0,0,0)),
+    ToTable = Table.FromList(Dates, Splitter.SplitByNothing(), {"Date"}, null, ExtraValues.Error),
+    AddYear = Table.AddColumn(ToTable, "Year", each Date.Year([Date]), Int64.Type),
+    AddMonthNum = Table.AddColumn(AddYear, "Month", each Date.Month([Date]), Int64.Type),
+    AddMonthName = Table.AddColumn(AddMonthNum, "MonthName", each Date.MonthName([Date]), type text),
+    AddQuarter = Table.AddColumn(AddMonthName, "Quarter", each "Q" & Number.ToText(Date.QuarterOfYear([Date])), type text),
+    AddWeekStartMon = Table.AddColumn(AddQuarter, "WeekStart", each Date.StartOfWeek([Date], Day.Monday), type date),
+    AddWeekOfYear = Table.AddColumn(AddWeekStartMon, "WeekOfYear", each Date.WeekOfYear([Date], Day.Monday), Int64.Type)
+in
+    AddWeekOfYear;
